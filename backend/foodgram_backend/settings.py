@@ -28,8 +28,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', '4')
 DEBUG = False
 
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
-
+# ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost").split(",")
+ALLOWED_HOSTS = ['localhost', '158.160.93.78', '127.0.0.1', '127.0.0.1:9090', 'edafood.ddns.net']
 
 # Application definition
 
