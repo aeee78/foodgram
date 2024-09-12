@@ -1,7 +1,9 @@
+"""Serializers for the API application."""
+
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from rest_framework import serializers
-from rest_framework.validators import UniqueTogetherValidator
 from rest_framework.exceptions import ValidationError
+from rest_framework.validators import UniqueTogetherValidator
 
 from api.utils import Base64ImageField, create_ingredients
 from recipes.models import (
@@ -17,7 +19,10 @@ from users.models import User, Subscription
 
 class UserSignUpSerializer(UserCreateSerializer):
     """Serializer for user registration."""
+
     class Meta:
+        """Meta class for UserSignUpSerializer."""
+
         model = User
         fields = (
             'email', 'id', 'username', 'first_name', 'last_name', 'password'
@@ -26,10 +31,13 @@ class UserSignUpSerializer(UserCreateSerializer):
 
 class UserGetSerializer(UserSerializer):
     """Serializer for retrieving user information."""
+
     is_subscribed = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
 
     class Meta:
+        """Meta class for UserGetSerializer."""
+
         model = User
         fields = (
             'email', 'id', 'username', 'first_name', 'last_name',
@@ -38,6 +46,7 @@ class UserGetSerializer(UserSerializer):
         read_only_fields = fields
 
     def to_representation(self, instance):
+        """Convert instance to representation."""
         ret = super().to_representation(instance)
         if isinstance(instance, User):
             ret['is_subscribed'] = self.get_is_subscribed(instance)
@@ -45,6 +54,7 @@ class UserGetSerializer(UserSerializer):
         return ret
 
     def get_is_subscribed(self, obj):
+        """Get subscription status."""
         request = self.context.get('request')
         return (
             request.user.is_authenticated
@@ -54,6 +64,7 @@ class UserGetSerializer(UserSerializer):
         )
 
     def get_avatar(self, obj):
+        """Get avatar URL."""
         if obj.avatar and hasattr(obj.avatar, 'url'):
             return self.context['request'].build_absolute_uri(obj.avatar.url)
         return ""
@@ -61,21 +72,28 @@ class UserGetSerializer(UserSerializer):
 
 class RecipeSmallSerializer(serializers.ModelSerializer):
     """Serializer for brief recipe information."""
+
     class Meta:
+        """Meta class for RecipeSmallSerializer."""
+
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')
 
 
 class UserSubscribeRepresentSerializer(UserGetSerializer):
     """Serializer for user subscription information."""
+
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
     class Meta(UserGetSerializer.Meta):
+        """Meta class for UserSubscribeRepresentSerializer."""
+
         fields = UserGetSerializer.Meta.fields + ('recipes', 'recipes_count')
         read_only_fields = fields
 
     def get_recipes(self, obj):
+        """Get recipes for the user."""
         request = self.context.get('request')
         recipes_limit = request.query_params.get(
             'recipes_limit') if request else None
@@ -90,12 +108,16 @@ class UserSubscribeRepresentSerializer(UserGetSerializer):
         ).data
 
     def get_recipes_count(self, obj):
+        """Get the count of user's recipes."""
         return obj.recipes.count()
 
 
 class UserSubscribeSerializer(serializers.ModelSerializer):
     """Serializer for user subscriptions."""
+
     class Meta:
+        """Meta class for UserSubscribeSerializer."""
+
         model = Subscription
         fields = '__all__'
         validators = [
@@ -107,11 +129,13 @@ class UserSubscribeSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
+        """Validate subscription data."""
         if data['user'] == data['author']:
             raise ValidationError("You can't subscribe to yourself!")
         return data
 
     def to_representation(self, instance):
+        """Convert instance to representation."""
         return UserSubscribeRepresentSerializer(
             instance.author,
             context={'request': self.context.get('request')}
@@ -120,20 +144,27 @@ class UserSubscribeSerializer(serializers.ModelSerializer):
 
 class TagSerializer(serializers.ModelSerializer):
     """Serializer for tags."""
+
     class Meta:
+        """Meta class for TagSerializer."""
+
         model = Tag
         fields = '__all__'
 
 
 class IngredientSerializer(serializers.ModelSerializer):
     """Serializer for ingredients."""
+
     class Meta:
+        """Meta class for IngredientSerializer."""
+
         model = Ingredient
         fields = '__all__'
 
 
 class IngredientGetSerializer(serializers.ModelSerializer):
     """Serializer for retrieving ingredient information in recipes."""
+
     id = serializers.IntegerField(source='ingredient.id', read_only=True)
     name = serializers.CharField(source='ingredient.name', read_only=True)
     measurement_unit = serializers.CharField(
@@ -141,22 +172,28 @@ class IngredientGetSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
+        """Meta class for IngredientGetSerializer."""
+
         model = RecipeIngredient
         fields = ('id', 'name', 'measurement_unit', 'amount')
 
 
 class IngredientPostSerializer(serializers.ModelSerializer):
     """Serializer for adding ingredients to recipes."""
+
     id = serializers.IntegerField()
     amount = serializers.IntegerField()
 
     class Meta:
+        """Meta class for IngredientPostSerializer."""
+
         model = RecipeIngredient
         fields = ('id', 'amount')
 
 
 class RecipeGetSerializer(serializers.ModelSerializer):
     """Serializer for retrieving recipe information."""
+
     tags = TagSerializer(many=True, read_only=True)
     author = UserGetSerializer(read_only=True)
     ingredients = IngredientGetSerializer(
@@ -167,6 +204,8 @@ class RecipeGetSerializer(serializers.ModelSerializer):
     image = Base64ImageField(required=False)
 
     class Meta:
+        """Meta class for RecipeGetSerializer."""
+
         model = Recipe
         fields = (
             'id', 'tags', 'author', 'ingredients', 'is_favorited',
@@ -174,6 +213,7 @@ class RecipeGetSerializer(serializers.ModelSerializer):
         )
 
     def get_is_favorited(self, obj):
+        """Check if the recipe is favorited by the user."""
         request = self.context.get('request')
         return (
             request and request.user.is_authenticated
@@ -184,6 +224,7 @@ class RecipeGetSerializer(serializers.ModelSerializer):
         )
 
     def get_is_in_shopping_cart(self, obj):
+        """Check if the recipe is in the user's shopping cart."""
         request = self.context.get('request')
         return (
             request and request.user.is_authenticated
@@ -195,6 +236,7 @@ class RecipeGetSerializer(serializers.ModelSerializer):
 
 class RecipeCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating and updating recipes."""
+
     ingredients = IngredientPostSerializer(
         many=True, required=True, source='recipeingredients'
     )
@@ -204,16 +246,20 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     image = Base64ImageField()
 
     class Meta:
+        """Meta class for RecipeCreateSerializer."""
+
         model = Recipe
         fields = ('ingredients', 'tags', 'image',
                   'name', 'text', 'cooking_time')
 
     def validate(self, data):
+        """Validate recipe data."""
         self._validate_ingredients(data)
         self._validate_tags(data)
         return data
 
     def _validate_ingredients(self, data):
+        """Validate ingredient data."""
         ingredients = data.get('recipeingredients')
         if not ingredients:
             raise ValidationError(
@@ -232,6 +278,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
                 )
 
     def _validate_tags(self, data):
+        """Validate tag data."""
         tags = data.get('tags')
         if not tags:
             raise ValidationError({'tags': 'This field may not be empty.'})
@@ -241,6 +288,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
             raise ValidationError('Duplicate tags are not allowed.')
 
     def create(self, validated_data):
+        """Create a new recipe."""
         ingredients = validated_data.pop('recipeingredients')
         tags = validated_data.pop('tags')
         recipe = Recipe.objects.create(
@@ -251,6 +299,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         return recipe
 
     def update(self, instance, validated_data):
+        """Update an existing recipe."""
         ingredients = validated_data.pop('recipeingredients')
         tags = validated_data.pop('tags')
         instance.tags.clear()
@@ -261,6 +310,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         return instance
 
     def to_representation(self, instance):
+        """Convert instance to representation."""
         return RecipeGetSerializer(
             instance,
             context={'request': self.context.get('request')}
@@ -269,7 +319,10 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
 class FavoriteSerializer(serializers.ModelSerializer):
     """Serializer for favorite recipes."""
+
     class Meta:
+        """Meta class for FavoriteSerializer."""
+
         model = Favorite
         fields = '__all__'
         validators = [
@@ -281,6 +334,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
         ]
 
     def to_representation(self, instance):
+        """Convert instance to representation."""
         return RecipeSmallSerializer(
             instance.recipe,
             context={'request': self.context.get('request')}
@@ -289,7 +343,10 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 class ShoppingCartSerializer(serializers.ModelSerializer):
     """Serializer for shopping cart."""
+
     class Meta:
+        """Meta class for ShoppingCartSerializer."""
+
         model = ShoppingCart
         fields = '__all__'
         validators = [
@@ -301,6 +358,7 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         ]
 
     def to_representation(self, instance):
+        """Convert instance to representation."""
         return RecipeSmallSerializer(
             instance.recipe,
             context={'request': self.context.get('request')}

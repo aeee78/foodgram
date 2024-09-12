@@ -1,3 +1,5 @@
+"""Recipes models."""
+
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.conf import settings
@@ -5,6 +7,8 @@ from users.models import User
 
 
 class Recipe(models.Model):
+    """Recipe model."""
+
     name = models.CharField(max_length=256, verbose_name="Название рецепта")
     image = models.ImageField(
         upload_to='recipes/images/', verbose_name="Изображение рецепта"
@@ -38,34 +42,46 @@ class Recipe(models.Model):
     )
 
     class Meta:
+        """Meta class for Recipe."""
+
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
 
     def __str__(self):
+        """Return name."""
         return self.name
 
 
 class Tag(models.Model):
+    """Tag model."""
+
     name = models.CharField(max_length=32, unique=True,
                             verbose_name="Название тега")
     slug = models.SlugField(max_length=32, unique=True,
                             verbose_name="Слаг тега")
 
     class Meta:
+        """Meta class for Tag."""
+
         verbose_name = "Тег"
         verbose_name_plural = "Теги"
 
     def __str__(self):
+        """Return name."""
         return self.name
 
 
 class Ingredient(models.Model):
+    """Ingredient model."""
+
     name = models.CharField(
         max_length=128, verbose_name="Название ингредиента")
     measurement_unit = models.CharField(
         max_length=64, verbose_name="Единица измерения")
 
     class Meta:
+        """Meta class for Ingredient."""
+
         verbose_name = "Ингредиент"
         verbose_name_plural = "Ингредиенты"
         constraints = [
@@ -75,10 +91,13 @@ class Ingredient(models.Model):
         ]
 
     def __str__(self):
+        """Return name and measurement unit."""
         return f"{self.name}, {self.measurement_unit}"
 
 
 class RecipeIngredient(models.Model):
+    """RecipeIngredient model."""
+
     recipe = models.ForeignKey(
         Recipe, on_delete=models.CASCADE, related_name='recipe_ingredients'
     )
@@ -90,6 +109,8 @@ class RecipeIngredient(models.Model):
     )
 
     class Meta:
+        """Meta class for RecipeIngredient."""
+
         verbose_name = "Рецепт - ингредиент"
         verbose_name_plural = "Рецепты - ингредиенты"
         constraints = [
@@ -100,6 +121,7 @@ class RecipeIngredient(models.Model):
         ]
 
     def __str__(self):
+        """Return recipe and ingredient."""
         return (
             f"{self.recipe.name} - {self.ingredient.name}: "
             f"{self.amount} {self.ingredient.measurement_unit}"
@@ -107,6 +129,8 @@ class RecipeIngredient(models.Model):
 
 
 class Favorite(models.Model):
+    """Favorite model."""
+
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -121,6 +145,8 @@ class Favorite(models.Model):
     )
 
     class Meta:
+        """Meta class for Favorite."""
+
         verbose_name = "Избранный рецепт"
         verbose_name_plural = "Избранные рецепты"
         constraints = [
@@ -130,10 +156,13 @@ class Favorite(models.Model):
         ]
 
     def __str__(self):
+        """Return user and recipe."""
         return f"{self.user.username} favorited {self.recipe.name}"
 
 
 class ShoppingCart(models.Model):
+    """ShoppingCart model."""
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -148,6 +177,8 @@ class ShoppingCart(models.Model):
     )
 
     class Meta:
+        """Meta class for ShoppingCart."""
+
         verbose_name = "Корзина покупок"
         verbose_name_plural = "Корзина покупок"
         constraints = [
@@ -157,4 +188,5 @@ class ShoppingCart(models.Model):
         ]
 
     def __str__(self):
+        """Return user and recipe."""
         return f"{self.user.username}'s cart - {self.recipe.name}"

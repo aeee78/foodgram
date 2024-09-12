@@ -1,12 +1,15 @@
+"""Utility functions and classes for handling recipes and ingredients."""
+
 import base64
 from typing import List, Type
 
-from django.shortcuts import get_object_or_404
 from django.core.files.base import ContentFile
 from django.db.models import Model
+from django.shortcuts import get_object_or_404
+
 from rest_framework import serializers, status
-from rest_framework.response import Response
 from rest_framework.request import Request
+from rest_framework.response import Response
 
 from recipes.models import Ingredient, RecipeIngredient, Recipe
 
@@ -15,6 +18,15 @@ class Base64ImageField(serializers.ImageField):
     """Custom serializer field for handling base64 encoded images."""
 
     def to_internal_value(self, data: str) -> ContentFile:
+        """
+        Convert base64-encoded image data to ContentFile.
+
+        Args:
+            data: Base64-encoded image data.
+
+        Returns:
+            ContentFile object containing the decoded image data.
+        """
         if isinstance(data, str) and data.startswith('data:image'):
             format_data, imgstr = data.split(';base64,')
             ext = format_data.split('/')[-1]

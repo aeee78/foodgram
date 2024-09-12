@@ -1,15 +1,18 @@
-from django.db.models import Sum
-from django.shortcuts import get_object_or_404
-from django.http import HttpResponse, JsonResponse
+"""Views for the API application."""
+
+import base64
+
+import short_url
 from django.core.files.base import ContentFile
+from django.db.models import Sum
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django_filters.rest_framework import DjangoFilterBackend
-import base64
-import short_url
 
 from api.custom_filters import IngredientFilter, RecipeFilter
 from api.permissions import IsAdminAuthorOrReadOnly
@@ -20,9 +23,9 @@ from api.serializers import (
     RecipeGetSerializer,
     ShoppingCartSerializer,
     TagSerializer,
+    UserGetSerializer,
     UserSubscribeRepresentSerializer,
     UserSubscribeSerializer,
-    UserGetSerializer
 )
 from api.utils import create_model_instance, delete_model_instance
 from recipes.models import (
@@ -31,7 +34,7 @@ from recipes.models import (
     Recipe,
     RecipeIngredient,
     ShoppingCart,
-    Tag
+    Tag,
 )
 from users.models import Subscription, User
 
@@ -68,6 +71,8 @@ def update_avatar(request):
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -79,9 +84,11 @@ def get_user_profile(request):
 
 class UserMeView(APIView):
     """View for getting the current user's information."""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        """Handle GET request to retrieve user information."""
         serializer = UserGetSerializer(
             request.user, context={'request': request}
         )
@@ -90,9 +97,11 @@ class UserMeView(APIView):
 
 class UserSubscribeView(APIView):
     """Create/delete subscription to a user."""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request, user_id):
+        """Handle POST request to create a subscription."""
         author = get_object_or_404(User, id=user_id)
         serializer = UserSubscribeSerializer(
             data={'user': request.user.id, 'author': author.id},
@@ -103,6 +112,7 @@ class UserSubscribeView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, user_id):
+        """Handle DELETE request to remove a subscription."""
         author = get_object_or_404(User, id=user_id)
         subscription = Subscription.objects.filter(
             user=request.user, author=author
@@ -118,9 +128,11 @@ class UserSubscribeView(APIView):
 
 class RecipeShortLinkView(APIView):
     """Generate a short link for a recipe."""
+
     permission_classes = [AllowAny]
 
     def get(self, request, pk):
+        """Handle GET request to generate a short link."""
         try:
             recipe = get_object_or_404(Recipe, pk=pk)
             short_link = short_url.encode(recipe.id)
@@ -144,9 +156,11 @@ class RecipeShortLinkView(APIView):
 
 class UserSubscriptionsViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """Get a list of all user subscriptions."""
+
     serializer_class = UserSubscribeRepresentSerializer
 
     def get_queryset(self):
+        """Get the queryset for user subscriptions."""
         if self.request.user.is_authenticated:
             return User.objects.filter(following__user=self.request.user)
         return User.objects.none()
@@ -154,6 +168,7 @@ class UserSubscriptionsViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
     """Get information about tags."""
+
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = (AllowAny,)
@@ -162,6 +177,7 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     """Get information about ingredients."""
+
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     permission_classes = (AllowAny,)
@@ -172,6 +188,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 
 class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet for working with recipes."""
+
     queryset = Recipe.objects.all()
     permission_classes = (IsAdminAuthorOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
@@ -179,6 +196,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_serializer_class(self):
+        """Get the appropriate serializer class."""
         if self.action in ('list', 'retrieve'):
             return RecipeGetSerializer
         return RecipeCreateSerializer

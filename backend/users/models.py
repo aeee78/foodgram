@@ -1,9 +1,13 @@
+"""User models."""
+
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 from django.db import models
 
 
 class User(AbstractUser):
+    """User model."""
+
     email = models.EmailField(
         max_length=254,
         unique=True,
@@ -31,14 +35,19 @@ class User(AbstractUser):
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     class Meta:
+        """Meta class for User."""
+
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
 
     def __str__(self):
+        """Return username."""
         return self.username
 
 
 class Subscription(models.Model):
+    """User subscription model."""
+
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -53,6 +62,8 @@ class Subscription(models.Model):
     )
 
     class Meta:
+        """Meta class for Subscription."""
+
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
         constraints = [
@@ -63,4 +74,5 @@ class Subscription(models.Model):
         ]
 
     def __str__(self):
+        """Return subscription string."""
         return f'{self.user.username} подписан на {self.author.username}'

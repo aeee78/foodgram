@@ -1,15 +1,18 @@
+"""URL configuration for the API endpoints."""
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+
 
 from .views import update_avatar
 from api.views import (
     IngredientViewSet,
+    RecipeShortLinkView,
     RecipeViewSet,
     TagViewSet,
+    UserMeView,
     UserSubscribeView,
     UserSubscriptionsViewSet,
-    RecipeShortLinkView,
-    UserMeView
 )
 
 router = DefaultRouter()
