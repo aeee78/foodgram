@@ -60,14 +60,6 @@ def create_model_instance(
 ) -> Response:
     """
     Create a model instance (e.g., add recipe to favorites or shopping list).
-
-    Args:
-        request: Request object.
-        instance: Model instance to be associated.
-        serializer_class: Serializer class to be used.
-
-    Returns:
-        Response object with created data or error message.
     """
     serializer = serializer_class(
         data={'user': request.user.id, 'recipe': instance.id},
@@ -86,15 +78,6 @@ def delete_model_instance(
 ) -> Response:
     """
     Delete a model instance (e.g., remove recipe from favorites).
-
-    Args:
-        request: Request object.
-        model_class: Model class to query.
-        instance: Model instance to be deleted.
-        error_message: Error message to be returned if instance doesn't exist.
-
-    Returns:
-        Response object with success status or error message.
     """
     if not model_class.objects.filter(
         user=request.user,
