@@ -1,9 +1,10 @@
 """Recipes models."""
 
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from api.constants import MAX_INGREDIENT_AMOUNT
 from recipes.constants import (INGREDIENT_MEASUREMENT_MAX_LENGTH,
                                INGREDIENT_NAME_MAX_LENGTH, NAME_MAX_LENGTH,
                                RECIPE_MIN_AMOUNT, RECIPE_MIN_COOKING_TIME,
@@ -54,7 +55,7 @@ class Recipe(models.Model):
 
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
-        ordering = ['-id']
+        ordering = ['name']
 
     def __str__(self):
         """Return name."""
@@ -120,7 +121,10 @@ class RecipeIngredient(models.Model):
         Ingredient, on_delete=models.CASCADE, related_name='recipe_ingredients'
     )
     amount = models.PositiveIntegerField(
-        validators=[MinValueValidator(RECIPE_MIN_AMOUNT)],
+        validators=[
+            MinValueValidator(RECIPE_MIN_AMOUNT),
+            MaxValueValidator(MAX_INGREDIENT_AMOUNT)
+        ],
         verbose_name="Количество"
     )
 
@@ -171,7 +175,7 @@ class Favorite(models.Model):
                 fields=['user', 'recipe'], name='unique_favorite'
             )
         ]
-        ordering = ['-id']
+        ordering = ['recipe__name']
 
     def __str__(self):
         """Return user and recipe."""
@@ -204,7 +208,7 @@ class ShoppingCart(models.Model):
                 fields=['user', 'recipe'], name='unique_shopping_cart'
             )
         ]
-        ordering = ['-id']
+        ordering = ['recipe__name']
 
     def __str__(self):
         """Return user and recipe."""

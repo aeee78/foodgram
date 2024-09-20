@@ -184,7 +184,15 @@ class IngredientPostSerializer(serializers.ModelSerializer):
     id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
     amount = serializers.IntegerField(
         min_value=MIN_INGREDIENT_AMOUNT,
-        max_value=MAX_INGREDIENT_AMOUNT
+        max_value=MAX_INGREDIENT_AMOUNT,
+        error_messages={
+            'min_value': (
+                f'Количество должно быть не менее {MIN_INGREDIENT_AMOUNT}.'
+            ),
+            'max_value': (
+                f'Количество должно быть не более {MAX_INGREDIENT_AMOUNT}.'
+            ),
+        }
     )
 
     class Meta:
@@ -192,18 +200,6 @@ class IngredientPostSerializer(serializers.ModelSerializer):
 
         model = RecipeIngredient
         fields = ('id', 'amount')
-
-    def validate_amount(self, value):
-        """Validate the amount field."""
-        if value < MIN_INGREDIENT_AMOUNT:
-            raise ValidationError(
-                f'Количество должно быть не менее {MIN_INGREDIENT_AMOUNT}.'
-            )
-        if value > MAX_INGREDIENT_AMOUNT:
-            raise ValidationError(
-                f'Количество должно быть не более {MAX_INGREDIENT_AMOUNT}.'
-            )
-        return value
 
 
 class RecipeGetSerializer(serializers.ModelSerializer):
@@ -285,7 +281,7 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         if not tags:
             raise ValidationError({'tags': 'Это поле обязательно.'})
 
-        tag_ids = set(tag.id for tag in tags)
+        tag_ids = set(tags)
         if len(tag_ids) != len(tags):
             raise ValidationError('Повторяющиеся теги запрещены.')
 

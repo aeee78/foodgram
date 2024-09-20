@@ -23,10 +23,13 @@ class RecipeAdmin(admin.ModelAdmin):
     search_fields = ('name', 'author__username', 'ingredients__name')
     inlines = (RecipeIngredientInline,)
 
+    @admin.display(
+        description='Number of adds to favorites',
+        ordering='favorites__count'
+    )
     def favorite_count(self, obj):
         """Get the count of user's favorites."""
         return obj.favorites.count()
-    favorite_count.short_description = 'Number of adds to favorites'
 
 
 @admin.register(Tag)
