@@ -142,8 +142,6 @@ DELETE /api/recipes/{id}/favorite/
 GET /api/ingredients/?name=карт
 ```
 
-<<<<<<< HEAD
+Полная документация доступна по  адресу: [edafood.ddns.net](http://edafood.ddns.net/api/docs/)
+
 *Примечание:* Замените `{id}` на фактический ID. Для авторизованных запросов используйте заголовок `Authorization: Token <ваш_токен>`.
-=======
-*Примечание:* Замените `{id}` на фактический ID. Для авторизованных запросов используйте заголовок `Authorization: Token <ваш_токен>`.
->>>>>>> 07f5fd415dc9bc0c1dac3fe7c5c90202d07e41d4
