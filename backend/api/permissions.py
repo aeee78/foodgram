@@ -3,17 +3,11 @@
 from rest_framework import permissions
 
 
-class IsAdminAuthorOrReadOnly(permissions.BasePermission):
-    """Admin and author permissions."""
-
-    def has_permission(self, request, view):
-        """Admin and author permissions."""
-        return (request.method in permissions.SAFE_METHODS
-                or request.user.is_authenticated)
+class IsAuthorOrReadOnly(permissions.BasePermission):
+    """Allow write access only to the author of the object."""
 
     def has_object_permission(self, request, view, obj):
-        """Admin and author permissions."""
-        return (request.method in permissions.SAFE_METHODS
-                or request.user.is_superuser
-                or request.user.is_staff
-                or obj.author == request.user)
+        """Allow write access only to the author of the object."""
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.author == request.user

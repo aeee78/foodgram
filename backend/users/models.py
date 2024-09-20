@@ -1,29 +1,41 @@
 """User models."""
 
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import RegexValidator
 from django.db import models
+
+from users.constants import (DEFAULT_EMAIL_MAX_LENGTH, FIRST_NAME_MAX_LENGTH,
+                             LAST_NAME_MAX_LENGTH, USERNAME_MAX_LENGTH)
+from users.validators import username_regex_validator, validate_username_not_me
 
 
 class User(AbstractUser):
     """User model."""
 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+
     email = models.EmailField(
-        max_length=254,
+        max_length=DEFAULT_EMAIL_MAX_LENGTH,
         unique=True,
         verbose_name="адрес электронной почты"
     )
     username = models.CharField(
-        max_length=150,
+        max_length=USERNAME_MAX_LENGTH,
         unique=True,
         verbose_name="Никнейм",
-        validators=[RegexValidator(
-            regex=r'^[\w.@+-]+$',
-            message="Никнейм может содержать только буквы, цифры и @/./+/-/_."
-        )]
+        validators=[
+            username_regex_validator,
+            validate_username_not_me
+        ]
     )
-    first_name = models.CharField(max_length=150, verbose_name="Имя")
-    last_name = models.CharField(max_length=150, verbose_name="Фамилия")
+    first_name = models.CharField(
+        max_length=FIRST_NAME_MAX_LENGTH,
+        verbose_name="Имя"
+    )
+    last_name = models.CharField(
+        max_length=LAST_NAME_MAX_LENGTH,
+        verbose_name="Фамилия"
+    )
     avatar = models.ImageField(
         upload_to='avatars/',
         blank=True,
@@ -31,14 +43,12 @@ class User(AbstractUser):
         verbose_name="Аватар"
     )
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
-
     class Meta:
         """Meta class for User."""
 
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
+        ordering = ['username']
 
     def __str__(self):
         """Return username."""

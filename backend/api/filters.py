@@ -1,22 +1,15 @@
-"""Custom filters for Recipe and Ingredient models."""
+"""Filters for Recipe and Ingredient models."""
 
 from django.db.models import Exists, OuterRef
 from django_filters.rest_framework import FilterSet, filters
-from recipes.models import Ingredient, Recipe, ShoppingCart, Tag
+
+from recipes.models import Ingredient, Recipe, ShoppingCart
 
 
 class RecipeFilter(FilterSet):
-    """
-    Custom filter for Recipe model.
+    """Filter for Recipe model."""
 
-    Allows filtering by tags, favorited status, and shopping cart status.
-    """
-
-    tags = filters.ModelMultipleChoiceFilter(
-        queryset=Tag.objects.all(),
-        field_name='tags__slug',
-        to_field_name='slug',
-    )
+    tags = filters.AllValuesMultipleFilter(field_name='tags__slug')
     is_favorited = filters.BooleanFilter(method='filter_is_favorited')
     is_in_shopping_cart = filters.BooleanFilter(
         method='filter_is_in_shopping_cart'
@@ -32,7 +25,7 @@ class RecipeFilter(FilterSet):
         """Filter queryset by favorited status."""
         user = self.request.user
         if value and user.is_authenticated:
-            return queryset.filter(favorited_by__user=user)
+            return queryset.filter(favorites__user=user)
         return queryset
 
     def filter_is_in_shopping_cart(self, queryset, name, value):
@@ -50,15 +43,11 @@ class RecipeFilter(FilterSet):
 
         if value:
             return queryset.filter(shopping_cart_filter)
-        return queryset.exclude(shopping_cart_filter)
+        return queryset(shopping_cart_filter)
 
 
 class IngredientFilter(FilterSet):
-    """
-    Custom filter for Ingredient model.
-
-    Allows case-insensitive filtering by name.
-    """
+    """Filter for Ingredient model."""
 
     name = filters.CharFilter(lookup_expr='istartswith')
 

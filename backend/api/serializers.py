@@ -5,16 +5,12 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework.validators import UniqueTogetherValidator
 
-from api.utils import Base64ImageField, create_ingredients
-from recipes.models import (
-    Favorite,
-    Ingredient,
-    Recipe,
-    RecipeIngredient,
-    ShoppingCart,
-    Tag
-)
-from users.models import User, Subscription
+from api.constants import MAX_INGREDIENT_AMOUNT, MIN_INGREDIENT_AMOUNT
+from api.fields import Base64ImageField
+from api.utils import create_ingredients
+from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredient,
+                            ShoppingCart, Tag)
+from users.models import Subscription, User
 
 
 class UserSignUpSerializer(UserCreateSerializer):
@@ -58,9 +54,7 @@ class UserGetSerializer(UserSerializer):
         request = self.context.get('request')
         return (
             request.user.is_authenticated
-            and Subscription.objects.filter(
-                user=request.user, author=obj
-            ).exists()
+            and request.user.follower.filter(author=obj).exists()
         )
 
     def get_avatar(self, obj):
@@ -97,10 +91,15 @@ class UserSubscribeRepresentSerializer(UserGetSerializer):
         request = self.context.get('request')
         recipes_limit = request.query_params.get(
             'recipes_limit') if request else None
-        recipes = (
-            obj.recipes.all()[:int(recipes_limit)]
-            if recipes_limit else obj.recipes.all()
-        )
+        recipes = obj.recipes.all()
+
+        if recipes_limit:
+            try:
+                recipes_limit = int(recipes_limit)
+                recipes = recipes[:recipes_limit]
+            except (ValueError, TypeError):
+                pass
+
         return RecipeSmallSerializer(
             recipes,
             many=True,
@@ -119,19 +118,20 @@ class UserSubscribeSerializer(serializers.ModelSerializer):
         """Meta class for UserSubscribeSerializer."""
 
         model = Subscription
-        fields = '__all__'
+        fields = ('author', 'user')
+
         validators = [
             UniqueTogetherValidator(
                 queryset=Subscription.objects.all(),
                 fields=('user', 'author'),
-                message='You are already subscribed to this user'
+                message='Вы уже подписаны на этого пользователя!'
             )
         ]
 
     def validate(self, data):
         """Validate subscription data."""
         if data['user'] == data['author']:
-            raise ValidationError("You can't subscribe to yourself!")
+            raise ValidationError("Вы не можете подписаться на себя!")
         return data
 
     def to_representation(self, instance):
@@ -181,14 +181,29 @@ class IngredientGetSerializer(serializers.ModelSerializer):
 class IngredientPostSerializer(serializers.ModelSerializer):
     """Serializer for adding ingredients to recipes."""
 
-    id = serializers.IntegerField()
-    amount = serializers.IntegerField()
+    id = serializers.PrimaryKeyRelatedField(queryset=Ingredient.objects.all())
+    amount = serializers.IntegerField(
+        min_value=MIN_INGREDIENT_AMOUNT,
+        max_value=MAX_INGREDIENT_AMOUNT
+    )
 
     class Meta:
         """Meta class for IngredientPostSerializer."""
 
         model = RecipeIngredient
         fields = ('id', 'amount')
+
+    def validate_amount(self, value):
+        """Validate the amount field."""
+        if value < MIN_INGREDIENT_AMOUNT:
+            raise ValidationError(
+                f'Количество должно быть не менее {MIN_INGREDIENT_AMOUNT}.'
+            )
+        if value > MAX_INGREDIENT_AMOUNT:
+            raise ValidationError(
+                f'Количество должно быть не более {MAX_INGREDIENT_AMOUNT}.'
+            )
+        return value
 
 
 class RecipeGetSerializer(serializers.ModelSerializer):
@@ -217,10 +232,7 @@ class RecipeGetSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return (
             request and request.user.is_authenticated
-            and Favorite.objects.filter(
-                user=request.user,
-                recipe=obj
-            ).exists()
+            and request.user.favorites.filter(recipe=obj).exists()
         )
 
     def get_is_in_shopping_cart(self, obj):
@@ -228,9 +240,7 @@ class RecipeGetSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         return (
             request and request.user.is_authenticated
-            and ShoppingCart.objects.filter(
-                user=request.user, recipe=obj
-            ).exists()
+            and request.user.user_shopping_carts.filter(recipe=obj).exists()
         )
 
 
@@ -263,29 +273,21 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         ingredients = data.get('recipeingredients')
         if not ingredients:
             raise ValidationError(
-                {'ingredients': 'This field may not be empty.'})
+                {'ingredients': 'Это поле обязательно.'})
 
         ingredient_ids = [ingredient['id'] for ingredient in ingredients]
         if len(set(ingredient_ids)) != len(ingredient_ids):
-            raise ValidationError('Duplicate ingredients are not allowed.')
-
-        for ingredient in ingredients:
-            if ingredient.get('amount') <= 0:
-                raise ValidationError('Amount must be greater than 0.')
-            if not Ingredient.objects.filter(id=ingredient['id']).exists():
-                raise ValidationError(
-                    f'Ingredient with id {ingredient["id"]} does not exist.'
-                )
+            raise ValidationError('Повторяющиеся ингредиенты запрещены.')
 
     def _validate_tags(self, data):
         """Validate tag data."""
         tags = data.get('tags')
         if not tags:
-            raise ValidationError({'tags': 'This field may not be empty.'})
+            raise ValidationError({'tags': 'Это поле обязательно.'})
 
-        tag_ids = [tag.id for tag in tags]
-        if len(set(tag_ids)) != len(tag_ids):
-            raise ValidationError('Duplicate tags are not allowed.')
+        tag_ids = set(tag.id for tag in tags)
+        if len(tag_ids) != len(tags):
+            raise ValidationError('Повторяющиеся теги запрещены.')
 
     def create(self, validated_data):
         """Create a new recipe."""
@@ -305,9 +307,9 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         instance.tags.clear()
         instance.tags.set(tags)
         RecipeIngredient.objects.filter(recipe=instance).delete()
-        super().update(instance, validated_data)
+
         create_ingredients(ingredients, instance)
-        return instance
+        return super().update(instance, validated_data)
 
     def to_representation(self, instance):
         """Convert instance to representation."""
@@ -324,12 +326,12 @@ class FavoriteSerializer(serializers.ModelSerializer):
         """Meta class for FavoriteSerializer."""
 
         model = Favorite
-        fields = '__all__'
+        fields = ('user', 'recipe')
         validators = [
             UniqueTogetherValidator(
                 queryset=Favorite.objects.all(),
                 fields=('user', 'recipe'),
-                message='This recipe is already in favorites'
+                message='Этот рецепт уже добавлен в избранное'
             )
         ]
 
@@ -348,12 +350,12 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         """Meta class for ShoppingCartSerializer."""
 
         model = ShoppingCart
-        fields = '__all__'
+        fields = ('user', 'recipe')
         validators = [
             UniqueTogetherValidator(
                 queryset=ShoppingCart.objects.all(),
                 fields=('user', 'recipe'),
-                message='This recipe is already in the shopping cart'
+                message='Этот рецепт уже добавлен в корзину'
             )
         ]
 

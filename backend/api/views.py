@@ -10,32 +10,23 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import (SAFE_METHODS, AllowAny,
+                                        IsAuthenticated,
+                                        IsAuthenticatedOrReadOnly)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.custom_filters import IngredientFilter, RecipeFilter
-from api.permissions import IsAdminAuthorOrReadOnly
-from api.serializers import (
-    FavoriteSerializer,
-    IngredientSerializer,
-    RecipeCreateSerializer,
-    RecipeGetSerializer,
-    ShoppingCartSerializer,
-    TagSerializer,
-    UserGetSerializer,
-    UserSubscribeRepresentSerializer,
-    UserSubscribeSerializer,
-)
+from api.filters import IngredientFilter, RecipeFilter
+from api.permissions import IsAuthorOrReadOnly
+from api.serializers import (FavoriteSerializer, IngredientSerializer,
+                             RecipeCreateSerializer, RecipeGetSerializer,
+                             ShoppingCartSerializer, TagSerializer,
+                             UserGetSerializer,
+                             UserSubscribeRepresentSerializer,
+                             UserSubscribeSerializer)
 from api.utils import create_model_instance, delete_model_instance
-from recipes.models import (
-    Favorite,
-    Ingredient,
-    Recipe,
-    RecipeIngredient,
-    ShoppingCart,
-    Tag,
-)
+from recipes.models import (Favorite, Ingredient, Recipe, RecipeIngredient,
+                            ShoppingCart, Tag)
 from users.models import Subscription, User
 
 
@@ -61,25 +52,14 @@ def update_avatar(request):
                 status=status.HTTP_200_OK
             )
         return JsonResponse(
-            {'error': 'Invalid avatar data'},
+            {'error': 'Неправильная ссылка на изображение'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    if request.method == 'DELETE':
-        if user.avatar:
-            user.avatar.delete()
-        user.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_user_profile(request):
-    """Get the authenticated user's profile."""
-    serializer = UserGetSerializer(request.user, context={'request': request})
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    if user.avatar:
+        user.avatar.delete()
+    user.save()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class UserMeView(APIView):
@@ -119,7 +99,7 @@ class UserSubscribeView(APIView):
         )
         if not subscription.exists():
             return Response(
-                {'errors': 'You are not subscribed to this user'},
+                {'errors': 'Вы не подписаны на этого пользователя'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         subscription.delete()
@@ -133,37 +113,25 @@ class RecipeShortLinkView(APIView):
 
     def get(self, request, pk):
         """Handle GET request to generate a short link."""
-        try:
-            recipe = get_object_or_404(Recipe, pk=pk)
-            short_link = short_url.encode(recipe.id)
-            base_url = request.build_absolute_uri('/')
-            full_short_link = f"{base_url}recipes/{short_link}/"
-            return Response(
-                {'short-link': full_short_link},
-                status=status.HTTP_200_OK
-            )
-        except Recipe.DoesNotExist:
-            return Response(
-                {'detail': 'Recipe not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            return Response(
-                {'detail': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        recipe = get_object_or_404(Recipe, pk=pk)
+        short_link = short_url.encode(recipe.id)
+        base_url = request.build_absolute_uri('/')
+        full_short_link = f"{base_url}recipes/{short_link}/"
+        return Response(
+            {'short-link': full_short_link},
+            status=status.HTTP_200_OK
+        )
 
 
 class UserSubscriptionsViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """Get a list of all user subscriptions."""
 
+    permission_classes = (IsAuthenticated,)
     serializer_class = UserSubscribeRepresentSerializer
 
     def get_queryset(self):
         """Get the queryset for user subscriptions."""
-        if self.request.user.is_authenticated:
-            return User.objects.filter(following__user=self.request.user)
-        return User.objects.none()
+        return User.objects.filter(following__user=self.request.user)
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -190,14 +158,14 @@ class RecipeViewSet(viewsets.ModelViewSet):
     """ViewSet for working with recipes."""
 
     queryset = Recipe.objects.all()
-    permission_classes = (IsAdminAuthorOrReadOnly,)
+    permission_classes = (IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     http_method_names = ['get', 'post', 'patch', 'delete']
 
     def get_serializer_class(self):
         """Get the appropriate serializer class."""
-        if self.action in ('list', 'retrieve'):
+        if self.request.method in SAFE_METHODS:
             return RecipeGetSerializer
         return RecipeCreateSerializer
 
@@ -215,7 +183,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             request,
             Favorite,
             recipe,
-            'This recipe is not in your favorites'
+            'Этот рецепт не добавлен в избранное'
         )
 
     @action(
@@ -236,8 +204,32 @@ class RecipeViewSet(viewsets.ModelViewSet):
             request,
             ShoppingCart,
             recipe,
-            'This recipe is not in your shopping cart'
+            'Этот рецепт не добавлен в корзину'
         )
+
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated]
+    )
+    def get_shopping_cart_ingredients(self, user):
+        """Get aggregated ingredients for user's shopping cart."""
+        return RecipeIngredient.objects.filter(
+            recipe__in=ShoppingCart.objects.filter(user=user).values('recipe')
+        ).values(
+            'ingredient__name', 'ingredient__measurement_unit'
+        ).annotate(ingredient_amount=Sum('amount'))
+
+    def format_shopping_list(self, ingredients):
+        """Format the shopping list as a string."""
+        shopping_list = ['Shopping List:\n']
+        shopping_list.extend(
+            f'\n{ingredient["ingredient__name"]} - '
+            f'{ingredient["ingredient_amount"]}, '
+            f'{ingredient["ingredient__measurement_unit"]}'
+            for ingredient in ingredients
+        )
+        return '\n'.join(shopping_list)
 
     @action(
         detail=False,
@@ -246,25 +238,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def download_shopping_cart(self, request):
         """Send a file with a shopping list."""
-        ingredients = RecipeIngredient.objects.filter(
-            recipe__in=ShoppingCart.objects.filter(
-                user=request.user
-            ).values('recipe')
-        ).values(
-            'ingredient__name', 'ingredient__measurement_unit'
-        ).annotate(ingredient_amount=Sum('amount'))
+        ingredients = self.get_shopping_cart_ingredients(request.user)
+        shopping_list = self.format_shopping_list(ingredients)
 
-        shopping_list = ['Shopping List:\n']
-        shopping_list.extend(
-            f'\n{ingredient["ingredient__name"]} - '
-            f'{ingredient["ingredient_amount"]}, '
-            f'{ingredient["ingredient__measurement_unit"]}'
-            for ingredient in ingredients
-        )
-
-        response = HttpResponse(
-            '\n'.join(shopping_list),
-            content_type='text/plain'
-        )
+        response = HttpResponse(shopping_list, content_type='text/plain')
         response['Content-Disposition'] = 'attachment; filename="shopping.txt"'
         return response

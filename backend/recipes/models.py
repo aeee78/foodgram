@@ -1,21 +1,29 @@
 """Recipes models."""
 
-from django.db import models
-from django.core.validators import MinValueValidator
 from django.conf import settings
+from django.core.validators import MinValueValidator
+from django.db import models
+
+from recipes.constants import (INGREDIENT_MEASUREMENT_MAX_LENGTH,
+                               INGREDIENT_NAME_MAX_LENGTH, NAME_MAX_LENGTH,
+                               RECIPE_MIN_AMOUNT, RECIPE_MIN_COOKING_TIME,
+                               TAG_NAME_MAX_LENGTH, TAG_SLUG_MAX_LENGTH)
 from users.models import User
 
 
 class Recipe(models.Model):
     """Recipe model."""
 
-    name = models.CharField(max_length=256, verbose_name="Название рецепта")
+    name = models.CharField(
+        max_length=NAME_MAX_LENGTH,
+        verbose_name="Название рецепта"
+    )
     image = models.ImageField(
         upload_to='recipes/images/', verbose_name="Изображение рецепта"
     )
     text = models.TextField(verbose_name="Описание рецепта")
     cooking_time = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)],
+        validators=[MinValueValidator(RECIPE_MIN_COOKING_TIME)],
         verbose_name="Время приготовления в минутах"
     )
     author = models.ForeignKey(
@@ -37,7 +45,7 @@ class Recipe(models.Model):
     )
     shopping_carts = models.ManyToManyField(
         'ShoppingCart',
-        related_name='recipes_in_cart',
+        related_name='recipes',
         blank=True
     )
 
@@ -46,6 +54,7 @@ class Recipe(models.Model):
 
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
+        ordering = ['-id']
 
     def __str__(self):
         """Return name."""
@@ -55,9 +64,9 @@ class Recipe(models.Model):
 class Tag(models.Model):
     """Tag model."""
 
-    name = models.CharField(max_length=32, unique=True,
+    name = models.CharField(max_length=TAG_NAME_MAX_LENGTH, unique=True,
                             verbose_name="Название тега")
-    slug = models.SlugField(max_length=32, unique=True,
+    slug = models.SlugField(max_length=TAG_SLUG_MAX_LENGTH, unique=True,
                             verbose_name="Слаг тега")
 
     class Meta:
@@ -65,6 +74,7 @@ class Tag(models.Model):
 
         verbose_name = "Тег"
         verbose_name_plural = "Теги"
+        ordering = ['name']
 
     def __str__(self):
         """Return name."""
@@ -75,9 +85,13 @@ class Ingredient(models.Model):
     """Ingredient model."""
 
     name = models.CharField(
-        max_length=128, verbose_name="Название ингредиента")
+        max_length=INGREDIENT_NAME_MAX_LENGTH,
+        verbose_name="Название ингредиента"
+    )
     measurement_unit = models.CharField(
-        max_length=64, verbose_name="Единица измерения")
+        max_length=INGREDIENT_MEASUREMENT_MAX_LENGTH,
+        verbose_name="Единица измерения"
+    )
 
     class Meta:
         """Meta class for Ingredient."""
@@ -89,6 +103,7 @@ class Ingredient(models.Model):
                 fields=['name', 'measurement_unit'], name='unique_ingredient'
             )
         ]
+        ordering = ['name']
 
     def __str__(self):
         """Return name and measurement unit."""
@@ -105,7 +120,8 @@ class RecipeIngredient(models.Model):
         Ingredient, on_delete=models.CASCADE, related_name='recipe_ingredients'
     )
     amount = models.PositiveIntegerField(
-        validators=[MinValueValidator(1)], verbose_name="Количество"
+        validators=[MinValueValidator(RECIPE_MIN_AMOUNT)],
+        verbose_name="Количество"
     )
 
     class Meta:
@@ -119,6 +135,7 @@ class RecipeIngredient(models.Model):
                 name='unique_recipe_ingredient'
             )
         ]
+        ordering = ['recipe']
 
     def __str__(self):
         """Return recipe and ingredient."""
@@ -140,7 +157,7 @@ class Favorite(models.Model):
     recipe = models.ForeignKey(
         'recipes.Recipe',
         on_delete=models.CASCADE,
-        related_name='favorited_by',
+        related_name='favorites',
         verbose_name="Избранный рецепт"
     )
 
@@ -154,6 +171,7 @@ class Favorite(models.Model):
                 fields=['user', 'recipe'], name='unique_favorite'
             )
         ]
+        ordering = ['-id']
 
     def __str__(self):
         """Return user and recipe."""
@@ -166,13 +184,13 @@ class ShoppingCart(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='shopping_cart',
+        related_name='user_shopping_carts',
         verbose_name="Пользователь"
     )
     recipe = models.ForeignKey(
         'recipes.Recipe',
         on_delete=models.CASCADE,
-        related_name='in_shopping_carts',
+        related_name='recipe_shopping_carts',
         verbose_name="Рецепт"
     )
 
@@ -186,6 +204,7 @@ class ShoppingCart(models.Model):
                 fields=['user', 'recipe'], name='unique_shopping_cart'
             )
         ]
+        ordering = ['-id']
 
     def __str__(self):
         """Return user and recipe."""

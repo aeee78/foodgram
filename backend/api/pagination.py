@@ -1,10 +1,12 @@
-"""Custom pagination module for REST framework."""
+"""Pagination module for REST framework."""
 
 from rest_framework.pagination import PageNumberPagination
 
+from api.constants import DEFAULT_PAGE_SIZE_QUERY_PARAM, MAX_PAGE_SIZE
 
-class CustomPageNumberPagination(PageNumberPagination):
-    """Custom pagination class with configurable page size."""
 
-    page_size_query_param = 'limit'
-    max_page_size = 6
+class PageNumberPagination(PageNumberPagination):
+    """Pagination class with configurable page size."""
+
+    page_size_query_param = DEFAULT_PAGE_SIZE_QUERY_PARAM
+    max_page_size = MAX_PAGE_SIZE
