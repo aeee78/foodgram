@@ -34,9 +34,6 @@
 ### Локальная установка
 
 1. Клонируйте репозиторий:
-   ```bash
-   git clone git@github.com:aeee78/foodgram.git
-   ```
 2. Создайте виртуальное окружение:
    ```bash
    python -m venv venv
@@ -60,9 +57,6 @@
 ### Запуск с Docker
 
 1. Клонируйте репозиторий:
-   ```bash
-   git clone git@github.com:aeee78/foodgram.git
-   ```
 2. Создайте и заполните `.env` файл на основе `.env.example`.
 3. Запустите Docker контейнеры:
    ```bash
