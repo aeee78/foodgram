@@ -1,5 +1,5 @@
 ---
-name: Main Foodgram workflow
+name: Main Recipes workflow
 on:
   push:
     branches:
