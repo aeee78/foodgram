@@ -1,6 +1,6 @@
 # Сайт кулинарных рецептов
 
-![example workflow](https://github.com/aeee78/foodgram/actions/workflows/main.yml/badge.svg)
+![example workflow](https://github.com/aeee78/recipes/actions/workflows/main.yml/badge.svg)
 
 
 Это веб-приложение для обмена рецептами, добавления их в избранное, подписки на авторов и создания списков покупок.
